@@ -235,5 +235,9 @@ if ready:
 
                 st.subheader("Generated Commentary")
                 st.write(commentary)
-                st.code(commentary, language=None)
+                st.text_area(
+                    "Copy-ready version",
+                    value=commentary,
+                    height=300
+                )
                 st.caption("Copy and paste directly into your board pack or reporting email.")
