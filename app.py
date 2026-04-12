@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import anthropic
+import os
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="FP&A Variance Commentary", layout="wide")
@@ -8,7 +9,7 @@ st.title("FP&A Variance Commentary Generator")
 st.caption("Upload your budget and actuals CSVs to generate CFO-ready commentary.")
 
 # ── API key input ─────────────────────────────────────────────────────────────
-api_key = st.text_input("Enter your Anthropic API Key", type="password")
+api_key = os.environ.get("ANTHROPIC_API_KEY")
 
 # ── File upload ───────────────────────────────────────────────────────────────
 col1, col2 = st.columns(2)
