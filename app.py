@@ -44,7 +44,10 @@ def calculate_variances(budget_df, actuals_df, materiality_pct):
     Returns a list of flagged variance dicts above the materiality threshold.
     """
     # Sum across all months for each Department + Category row
-    month_cols = [c for c in budget_df.columns if c not in ("Department", "Category")]
+    month_cols = [
+        c for c in budget_df.columns
+        if c not in ("Department", "Category", "Total_Budget", "Total_Actuals")
+    ]
 
     budget_df["Total_Budget"] = budget_df[month_cols].sum(axis=1)
     actuals_df["Total_Actuals"] = actuals_df[month_cols].sum(axis=1)
@@ -69,8 +72,11 @@ def calculate_monthly_variances(budget_df, actuals_df, flagged_df):
     Calculate monthly variances for flagged line items to show trends.
     Returns a dataframe with monthly breakdown.
     """
-    month_cols = [c for c in budget_df.columns if c not in ("Department", "Category")]
-    
+    month_cols = [
+        c for c in budget_df.columns
+        if c not in ("Department", "Category", "Total_Budget", "Total_Actuals")
+    ]
+
     monthly_data = []
     for _, row in flagged_df.iterrows():
         dept = row["Department"]
