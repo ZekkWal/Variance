@@ -440,7 +440,7 @@ if st.button("Generate Commentary", type="primary"):
                 sources_display.style.format({
                     "Variance $": "${:,.0f}",
                     "Variance %": "{:.1f}%"
-                }).applymap(
+                }).map(
                     lambda x: "background-color: #ffe6e6" if x == "Unfavorable" else ("background-color: #e6ffe6" if x == "Favorable" else ""),
                     subset=["Direction"]
                 ),
