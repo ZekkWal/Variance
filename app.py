@@ -356,7 +356,7 @@ if st.button("Generate Commentary", type="primary"):
                 unfavorable = flagged_df[flagged_df["Direction"] == "Unfavorable"].copy()
                 if not unfavorable.empty:
                     unfavorable["Label"] = unfavorable["Department"] + " / " + unfavorable["Category"]
-                    unfav_chart = alt.Chart(unfavorable.head(10)).mark_barh().encode(
+                    unfav_chart = alt.Chart(unfavorable.head(10)).mark_bar().encode(
                         y=alt.Y("Label:N", sort="-x"),
                         x=alt.X("Variance_%:Q", title="Variance %"),
                         color=alt.value("#d73027")
@@ -370,7 +370,7 @@ if st.button("Generate Commentary", type="primary"):
                 favorable = flagged_df[flagged_df["Direction"] == "Favorable"].copy()
                 if not favorable.empty:
                     favorable["Label"] = favorable["Department"] + " / " + favorable["Category"]
-                    fav_chart = alt.Chart(favorable.head(10)).mark_barh().encode(
+                    fav_chart = alt.Chart(favorable.head(10)).mark_bar().encode(
                         y=alt.Y("Label:N", sort="-x"),
                         x=alt.X("Variance_%:Q", title="Variance %"),
                         color=alt.value("#1a9850")
