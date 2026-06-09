@@ -1,8 +1,9 @@
+import os
 import streamlit as st
 import pandas as pd
 import anthropic
 import altair as alt
-from io import BytesIO
+from io import BytesIO, StringIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -11,6 +12,23 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 st.set_page_config(page_title="FP&A Variance Commentary", layout="wide")
 st.title("FP&A Variance Commentary Generator")
 st.caption("Upload your budget and actuals CSVs to generate CFO-ready commentary.")
+
+# ── Sample data ───────────────────────────────────────────────────────────────
+SAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample_data")
+
+# (file name, friendly label) for each of the four bundled sample files.
+SAMPLE_FILES = {
+    "budget":        ("sample_budget.csv",        "Budget — current period"),
+    "actuals":       ("sample_actuals.csv",       "Actuals — current period"),
+    "prior_budget":  ("sample_prior_budget.csv",  "Budget — prior period"),
+    "prior_actuals": ("sample_prior_actuals.csv", "Actuals — prior period"),
+}
+
+@st.cache_data
+def load_sample_text(file_name):
+    """Read a bundled sample CSV as raw text (cached so we only hit disk once)."""
+    with open(os.path.join(SAMPLE_DIR, file_name), encoding="utf-8") as f:
+        return f.read()
 
 # ── API key input ─────────────────────────────────────────────────────────────
 api_key = st.text_input("Enter your Anthropic API Key", type="password")
@@ -29,6 +47,47 @@ with col3:
     prior_budget_file = st.file_uploader("Upload Prior Period Budget CSV (optional)", type="csv", key="prior_budget")
 with col4:
     prior_actuals_file = st.file_uploader("Upload Prior Period Actuals CSV (optional)", type="csv", key="prior_actuals")
+
+# ── Sample data: view / download / load ───────────────────────────────────────
+st.markdown("---")
+with st.expander("🧪 No data handy? Try the tool with a built-in sample dataset", expanded=False):
+    st.markdown(
+        "These four files are designed to showcase **every** feature of the tool — "
+        "material favorable *and* unfavorable variances, an escalating monthly cost "
+        "trend (cloud infrastructure & advertising), and a prior period so the "
+        "**period-over-period comparison** lights up. Preview or download any file to "
+        "use as a template, or load the whole set into the tool with one click."
+    )
+
+    sample_tabs = st.tabs([label for _, label in SAMPLE_FILES.values()])
+    for tab, (file_name, label) in zip(sample_tabs, SAMPLE_FILES.values()):
+        with tab:
+            csv_text = load_sample_text(file_name)
+            st.dataframe(pd.read_csv(StringIO(csv_text)), use_container_width=True)
+            st.download_button(
+                f"⬇️ Download {file_name}",
+                data=csv_text,
+                file_name=file_name,
+                mime="text/csv",
+                key=f"download_{file_name}",
+            )
+
+    load_col, clear_col = st.columns(2)
+    with load_col:
+        if st.button("📥 Load sample data into the tool"):
+            st.session_state.use_sample = True
+            st.rerun()
+    with clear_col:
+        if st.session_state.get("use_sample") and st.button("✖️ Clear sample data"):
+            st.session_state.use_sample = False
+            st.rerun()
+
+if st.session_state.get("use_sample"):
+    st.success(
+        "✅ **Sample dataset loaded** (current *and* prior period). "
+        "Scroll down and click **Generate Commentary**. "
+        "Any file you upload above will override the matching sample."
+    )
 
 # ── Settings ──────────────────────────────────────────────────────────────────
 materiality_pct = st.slider(
@@ -288,15 +347,25 @@ Instructions:
     return prompt
 
 # ── Run button ────────────────────────────────────────────────────────────────
+def resolve_source(uploaded_file, sample_key, use_sample):
+    """Return a DataFrame from an uploaded file, or the bundled sample if loaded."""
+    if uploaded_file is not None:
+        return pd.read_csv(uploaded_file)
+    if use_sample:
+        return pd.read_csv(StringIO(load_sample_text(SAMPLE_FILES[sample_key][0])))
+    return None
+
 if st.button("Generate Commentary", type="primary"):
+    use_sample = st.session_state.get("use_sample", False)
+    budget_df = resolve_source(budget_file, "budget", use_sample)
+    actuals_df = resolve_source(actuals_file, "actuals", use_sample)
+
     if not api_key:
         st.error("Please enter your Anthropic API key.")
-    elif budget_file is None or actuals_file is None:
-        st.error("Please upload both CSV files.")
+    elif budget_df is None or actuals_df is None:
+        st.error("Please upload both CSV files, or load the sample dataset above.")
     else:
         with st.spinner("Calculating variances..."):
-            budget_df = pd.read_csv(budget_file)
-            actuals_df = pd.read_csv(actuals_file)
             
             # Run data quality checks
             quality_issues = validate_data_quality(budget_df, actuals_df)
@@ -380,10 +449,10 @@ if st.button("Generate Commentary", type="primary"):
                     st.info("No favorable variances.")
             
             # Period-over-period comparison (if prior data provided)
-            if prior_budget_file is not None and prior_actuals_file is not None:
+            prior_budget_df = resolve_source(prior_budget_file, "prior_budget", use_sample)
+            prior_actuals_df = resolve_source(prior_actuals_file, "prior_actuals", use_sample)
+            if prior_budget_df is not None and prior_actuals_df is not None:
                 with st.spinner("Loading prior period data..."):
-                    prior_budget_df = pd.read_csv(prior_budget_file)
-                    prior_actuals_df = pd.read_csv(prior_actuals_file)
                     prior_full_df, _ = calculate_variances(prior_budget_df, prior_actuals_df, materiality_pct)
                     
                     comparison_df = compare_periods(full_df, prior_full_df)
