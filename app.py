@@ -30,8 +30,22 @@ def load_sample_text(file_name):
     with open(os.path.join(SAMPLE_DIR, file_name), encoding="utf-8") as f:
         return f.read()
 
-# ── API key input ─────────────────────────────────────────────────────────────
-api_key = st.text_input("Enter your Anthropic API Key", type="password")
+# ── API key ───────────────────────────────────────────────────────────────────
+# Read the key from Streamlit secrets (.streamlit/secrets.toml) or an environment
+# variable — both are kept out of git. Only prompt if neither is configured.
+def get_api_key():
+    try:
+        if "ANTHROPIC_API_KEY" in st.secrets:
+            return st.secrets["ANTHROPIC_API_KEY"]
+    except Exception:
+        pass  # no secrets.toml present
+    return os.environ.get("ANTHROPIC_API_KEY", "")
+
+api_key = get_api_key()
+if api_key:
+    st.success("✅ Anthropic API key loaded from configuration.")
+else:
+    api_key = st.text_input("Enter your Anthropic API Key", type="password")
 
 # ── File upload ───────────────────────────────────────────────────────────────
 col1, col2 = st.columns(2)
@@ -486,7 +500,7 @@ if st.button("Generate Commentary", type="primary"):
                 prompt = build_prompt(flagged_df, audience)
                 client = anthropic.Anthropic(api_key=api_key)
                 message = client.messages.create(
-                    model="claude-opus-4-5",
+                    model="claude-opus-4-8",
                     max_tokens=1000,
                     messages=[{"role": "user", "content": prompt}]
                 )
